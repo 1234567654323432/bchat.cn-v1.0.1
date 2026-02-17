@@ -1,0 +1,2130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bchat - 极简私聊</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        body {
+            background: #f5f5f5;
+            color: #333;
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 280px;
+            background: #fff;
+            border-right: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .sidebar-header h1 {
+            font-size: 24px;
+            color: #2196F3;
+        }
+        .contact-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .contact-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .contact-item:hover {
+            background: #f8f8f8;
+        }
+        .contact-item.active {
+            background: #e3f2fd;
+        }
+        .contact-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .contact-lastmsg {
+            font-size: 13px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            background: #fafafa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header h2 {
+            font-size: 18px;
+        }
+        .chat-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 16px;
+            background: #fafafa;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+            display: none;
+        }
+        .message {
+            max-width: 70%;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            line-height: 1.5;
+            position: relative;
+        }
+        .message.sent {
+            background: #2196F3;
+            color: #fff;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .message.received {
+            background: #e0e0e0;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        .message-time {
+            font-size: 11px;
+            color: rgba(0,0,0,0.4);
+            margin-top: 5px;
+            text-align: right;
+        }
+        .message-file {
+            display: block;
+            margin-top: 8px;
+            color: inherit;
+            text-decoration: none;
+            background: rgba(0,0,0,0.1);
+            padding: 8px;
+            border-radius: 8px;
+            word-break: break-all;
+        }
+        .message-delete {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.2);
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .message:hover .message-delete {
+            opacity: 1;
+        }
+        .chat-input-area {
+            padding: 15px;
+            border-top: 1px solid #eee;
+            background: #fff;
+            display: flex;
+            gap: 10px;
+            display: none;
+        }
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            outline: none;
+            resize: none;
+            min-height: 48px;
+            max-height: 120px;
+        }
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #2196F3;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #1976D2;
+        }
+        .btn-file {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .btn-file:hover {
+            background: #e0e0e0;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .upload-progress {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1000;
+        }
+        .progress-bar {
+            width: 200px;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #2196F3;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 18px;
+            color: #2196F3;
+        }
+        .contact-item.file-transfer {
+            background: #f0f8ff;
+        }
+        .contact-item.file-transfer:hover {
+            background: #e8f4f8;
+        }
+        .btn-clear {
+            padding: 8px 12px;
+            font-size: 14px;
+            background: #f44336;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-clear:hover {
+            background: #d32f2f;
+        }
+        .refresh-btn {
+            padding: 8px 12px;
+            font-size: 14px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .refresh-btn:hover {
+            background: #388E3C;
+        }
+        .my-profile-section {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .my-profile-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .my-username {
+            font-weight: 500;
+            font-size: 16px;
+            color: #2196F3;
+        }
+        .edit-profile-btn {
+            font-size: 12px;
+            color: #2196F3;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .contact-remark {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        .remark-edit-btn {
+            font-size: 11px;
+            color: #2196F3;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        /* 新增：设置按钮样式 */
+        .settings-btn {
+            padding: 8px 12px;
+            font-size: 14px;
+            background: #9e9e9e;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .settings-btn:hover {
+            background: #757575;
+        }
+        /* 新增：设置项样式 */
+        .settings-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .settings-section:last-child {
+            border-bottom: none;
+        }
+        .settings-label {
+            font-weight: 500;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .settings-desc {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .password-strength {
+            font-size: 12px;
+            margin-top: 5px;
+            height: 20px;
+        }
+        .strength-weak { color: #f44336; }
+        .strength-medium { color: #ff9800; }
+        .strength-strong { color: #4caf50; }
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        .file-name {
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-meta {
+            font-size: 12px;
+            color: #888;
+        }
+        .file-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+        .danger-zone {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .danger-title {
+            color: #f44336;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        .verify-ip-box {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">正在获取外网IP并验证身份...</div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>bchat</h1>
+            <p style="font-size: 13px; color: #888; margin-top: 5px;">你的外网IP: <span id="my-ip">加载中...</span></p>
+        </div>
+        
+        <div class="my-profile-section">
+            <div class="my-profile-info">
+                <div class="my-username" id="my-username">未设置用户名</div>
+                <span class="edit-profile-btn" onclick="openEditProfileModal()">编辑资料</span>
+            </div>
+        </div>
+
+        <div class="contact-list" id="contact-list">
+            <!-- 联系人列表动态生成 -->
+        </div>
+        <div style="padding: 15px; border-top: 1px solid #eee;">
+            <button class="btn btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="openAddContactModal()">+ 添加联系人</button>
+            <button class="btn" style="width: 100%; background: #f0f0f0; color: #666;" onclick="openSettingsModal()">⚙️ 设置</button>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="chat-header">
+            <h2 id="chat-title">请选择联系人开始聊天</h2>
+            <div>
+                <button class="refresh-btn" id="refresh-chat-btn" style="display: none;" onclick="loadMessages()">🔄 刷新消息</button>
+                <button class="btn-clear" id="clear-chat-btn" style="display: none;" onclick="clearChatHistory()">清空聊天记录</button>
+            </div>
+        </div>
+        <div class="chat-empty" id="chat-empty">
+            暂无聊天对象，请添加联系人或选择文件传输助手
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <!-- 消息将在这里动态生成 -->
+        </div>
+        <div class="chat-input-area" id="chat-input-area">
+            <textarea class="chat-input" id="message-input" placeholder="输入消息..." rows="1"></textarea>
+            <button class="btn btn-file" onclick="document.getElementById('file-input').click()">📎</button>
+            <input type="file" id="file-input" style="display: none" accept="*">
+            <button class="btn btn-primary" id="send-btn">发送</button>
+        </div>
+    </div>
+
+    <!-- 添加联系人弹窗 -->
+    <div class="modal" id="add-contact-modal">
+        <div class="modal-content">
+            <div class="modal-title">添加联系人</div>
+            <div class="form-group">
+                <label for="contact-ip">对方外网IP地址</label>
+                <input type="text" class="form-control" id="contact-ip" placeholder="例如: 114.114.114.114">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeAddContactModal()">取消</button>
+                <button class="btn btn-primary" onclick="sendContactRequest()">发送申请</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑个人资料弹窗 -->
+    <div class="modal" id="edit-profile-modal">
+        <div class="modal-content">
+            <div class="modal-title">编辑个人资料</div>
+            <div class="form-group">
+                <label for="new-username">设置用户名</label>
+                <input type="text" class="form-control" id="new-username" placeholder="最多20个字符" maxlength="20">
+                <small style="color: #888; margin-top: 5px; display: block;" id="username-length-tip">0/20 字符</small>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeEditProfileModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveUsername()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑联系人备注弹窗 -->
+    <div class="modal" id="edit-remark-modal">
+        <div class="modal-content">
+            <div class="modal-title">编辑联系人备注</div>
+            <div class="form-group">
+                <label for="contact-ip-display">联系人IP</label>
+                <input type="text" class="form-control" id="contact-ip-display" readonly>
+            </div>
+            <div class="form-group">
+                <label for="contact-remark-input">备注名称</label>
+                <input type="text" class="form-control" id="contact-remark-input" placeholder="最多20个字符" maxlength="20">
+                <small style="color: #888; margin-top: 5px; display: block;" id="remark-length-tip">0/20 字符</small>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeEditRemarkModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveContactRemark()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：设置弹窗 -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-title">设置</div>
+            
+            <!-- 登录密码设置 -->
+            <div class="settings-section">
+                <label class="settings-label">登录密码保护</label>
+                <p class="settings-desc">开启后，每次打开应用需要输入密码验证身份</p>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="password-toggle" onchange="togglePasswordProtection()">
+                    <span class="slider"></span>
+                </label>
+                <div id="password-setup-panel" style="display: none; margin-top: 15px;">
+                    <div class="form-group">
+                        <label>设置密码 (8-22位，必须包含大小写字母、数字、特殊字符)</label>
+                        <input type="password" class="form-control" id="new-password" placeholder="输入密码" oninput="checkPasswordStrength()">
+                        <div class="password-strength" id="password-strength"></div>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" class="form-control" id="confirm-password" placeholder="确认密码">
+                    </div>
+                    <button class="btn btn-primary" onclick="savePassword()">保存密码</button>
+                </div>
+                <div id="password-status" style="margin-top: 10px; font-size: 13px; color: #4caf50;"></div>
+            </div>
+
+            <!-- 云端文件管理 -->
+            <div class="settings-section">
+                <label class="settings-label">云端文件管理</label>
+                <p class="settings-desc">查看和管理你上传的所有文件</p>
+                <button class="btn btn-primary" onclick="loadCloudFiles()">刷新文件列表</button>
+                <div class="file-list" id="cloud-files-list" style="margin-top: 10px;">
+                    <div style="text-align: center; color: #888; padding: 20px;">点击刷新加载文件列表</div>
+                </div>
+            </div>
+
+            <!-- 注销账户 -->
+            <div class="danger-zone">
+                <div class="danger-title">⚠️ 危险区域</div>
+                <p class="settings-desc">注销账户将永久删除你的所有数据，包括联系人、聊天记录和上传的文件。此操作无法撤销。</p>
+                <button class="btn btn-danger" onclick="startAccountDeletion()">注销账户</button>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn" onclick="closeSettingsModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：密码验证弹窗 -->
+    <div class="modal" id="password-verify-modal">
+        <div class="modal-content">
+            <div class="modal-title">身份验证</div>
+            <p style="margin-bottom: 15px; color: #666;">该账户已启用密码保护，请输入密码继续</p>
+            <div class="form-group">
+                <input type="password" class="form-control" id="verify-password" placeholder="输入密码" onkeydown="if(event.key==='Enter') verifyPassword()">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="verifyPassword()">验证</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：注销确认弹窗 -->
+    <div class="modal" id="delete-account-modal">
+        <div class="modal-content">
+            <div class="modal-title" style="color: #f44336;">确认注销账户</div>
+            <p style="margin-bottom: 15px;">请输入以下IP地址以确认注销：</p>
+            <div class="verify-ip-box" id="verify-ip-display"></div>
+            <div class="form-group">
+                <input type="text" class="form-control" id="verify-ip-input" placeholder="输入上方IP地址">
+            </div>
+            <p style="color: #f44336; font-size: 13px; margin-bottom: 15px;">警告：此操作将永久删除所有数据，无法恢复！</p>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeDeleteAccountModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDeleteAccount()">确认注销</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="upload-progress" id="upload-progress">
+        <div>上传中...</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+    </div>
+
+    <script>
+        // 配置信息
+        const CONFIG = {
+            endpoint: 'cn-sy1.rains3.com',
+            accessKey: 'bvduoispWIlcPnvI',
+            secretKey: 'RZvk3cDwSXU0Cym8ly46Z0bi9gkN0J',
+            bucket: 'bchat',
+            region: 'cn-sy1',
+            maxImageSize: 3 * 1024 * 1024,
+            maxFileSize: 2 * 1024 * 1024 * 1024,
+            accountInactiveDays: 90,
+            fileTransferKey: 'file-transfer',
+            // 修改为仅IPv4的API
+            ipApiList: [
+                'https://api4.ipify.org?format=json',
+                'https://ipv4.icanhazip.com',
+                'https://v4.ident.me/.json'
+            ],
+            messageSyncInterval: 5000,
+            maxUsernameLength: 20,
+            maxRemarkLength: 20,
+            // PBKDF2配置
+            pbkdf2Iterations: 100000,
+            pbkdf2KeyLength: 32
+        };
+
+        let myIp = '';
+        let currentChat = '';
+        let contacts = [];
+        let pendingRequests = [];
+        let messageSyncTimer = null;
+        let myUsername = '';
+        let userPasswordHash = null; // 存储密码哈希
+        let isPasswordProtected = false;
+
+        // 初始化
+        async function init() {
+            try {
+                // 强制获取IPv4地址
+                myIp = await getIPv4Address();
+                if (!myIp || isPrivateIp(myIp)) {
+                    throw new Error('无法获取有效的IPv4外网地址，请检查网络连接');
+                }
+                document.getElementById('my-ip').textContent = myIp;
+                
+                await checkAccountRegistration();
+                
+                // 检查密码保护
+                if (await checkPasswordProtection()) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('password-verify-modal').style.display = 'flex';
+                    return; // 等待密码验证
+                }
+                
+                checkAccountInactive();
+                await loadMyUsername();
+                updateUsernameDisplay();
+                renderContactList();
+                setupEventListeners();
+                setupLengthListeners();
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                alert(`初始化失败: ${error.message}`);
+                console.error('初始化错误:', error);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // ===== 优化：仅获取IPv4地址 =====
+        function isPrivateIp(ip) {
+            const ipParts = ip.split('.').map(Number);
+            return (
+                ipParts[0] === 10 ||
+                (ipParts[0] === 172 && ipParts[1] >= 16 && ipParts[1] <= 31) ||
+                (ipParts[0] === 192 && ipParts[1] === 168) ||
+                ipParts[0] === 127 ||
+                ip === '0.0.0.0'
+            );
+        }
+
+        // 验证是否为IPv4格式
+        function isIPv4(ip) {
+            const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+            if (!ipv4Regex.test(ip)) return false;
+            const parts = ip.split('.');
+            return parts.every(part => {
+                const num = parseInt(part, 10);
+                return num >= 0 && num <= 255;
+            });
+        }
+
+        async function getIPv4Address(retries = 3) {
+            for (let i = 0; i < CONFIG.ipApiList.length; i++) {
+                try {
+                    const api = CONFIG.ipApiList[i];
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    
+                    let response = await fetch(api, { 
+                        signal: controller.signal,
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) continue;
+                    
+                    let data;
+                    let ip;
+                    
+                    if (api.includes('icanhazip') || api.includes('ident.me')) {
+                        // 纯文本或JSON
+                        const text = await response.text();
+                        try {
+                            data = JSON.parse(text);
+                            ip = data.ip || data.address;
+                        } catch {
+                            ip = text.trim();
+                        }
+                    } else {
+                        data = await response.json();
+                        ip = data.ip;
+                    }
+                    
+                    // 严格验证IPv4格式
+                    if (ip && isIPv4(ip) && !isPrivateIp(ip)) {
+                        return ip;
+                    }
+                } catch (e) {
+                    console.log(`IPv4接口 ${CONFIG.ipApiList[i]} 调用失败:`, e);
+                    continue;
+                }
+            }
+            
+            if (retries > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                return getIPv4Address(retries - 1);
+            }
+            
+            return '';
+        }
+
+        // 检查账户是否已注册
+        async function checkAccountRegistration() {
+            try {
+                const userDataKey = `users/${myIp}/user_data.json`;
+                const userDataUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${userDataKey}`;
+                const response = await fetch(userDataUrl);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (Array.isArray(data.contacts) && data.contacts.length > 0) {
+                        if (typeof data.contacts[0] === 'string') {
+                            contacts = data.contacts.map(ip => ({ ip, remark: '' }));
+                        } else {
+                            contacts = data.contacts;
+                        }
+                    } else {
+                        contacts = [];
+                    }
+                    pendingRequests = data.pendingRequests || [];
+                    myUsername = data.username || '';
+                    userPasswordHash = data.passwordHash || null;
+                    isPasswordProtected = !!userPasswordHash;
+                } else {
+                    await createNewAccount();
+                }
+            } catch (error) {
+                await createNewAccount();
+            }
+        }
+
+        // 检查是否需要密码验证
+        async function checkPasswordProtection() {
+            return isPasswordProtected;
+        }
+
+        // 验证密码
+        async function verifyPassword() {
+            const inputPassword = document.getElementById('verify-password').value;
+            if (!inputPassword) {
+                alert('请输入密码');
+                return;
+            }
+            
+            try {
+                const isValid = await verifyPBKDF2(inputPassword, userPasswordHash);
+                if (isValid) {
+                    document.getElementById('password-verify-modal').style.display = 'none';
+                    document.getElementById('loading').style.display = 'flex';
+                    
+                    checkAccountInactive();
+                    await loadMyUsername();
+                    updateUsernameDisplay();
+                    renderContactList();
+                    setupEventListeners();
+                    setupLengthListeners();
+                    
+                    document.getElementById('loading').style.display = 'none';
+                } else {
+                    alert('密码错误，请重试');
+                    document.getElementById('verify-password').value = '';
+                }
+            } catch (error) {
+                alert('验证失败: ' + error.message);
+            }
+        }
+
+        // 创建新账户
+        async function createNewAccount() {
+            const userData = {
+                contacts: [],
+                pendingRequests: [],
+                lastActive: Date.now(),
+                createTime: Date.now(),
+                username: '',
+                passwordHash: null
+            };
+            await uploadDataToRains3(`users/${myIp}/user_data.json`, userData);
+            contacts = [];
+            pendingRequests = [];
+            myUsername = '';
+            userPasswordHash = null;
+            isPasswordProtected = false;
+        }
+
+        // 加载用户数据
+        async function loadUserData() {
+            const userDataKey = `users/${myIp}/user_data.json`;
+            const userDataUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${userDataKey}`;
+            const response = await fetch(userDataUrl);
+            if (response.ok) {
+                return await response.json();
+            }
+            return { contacts: [], pendingRequests: [], lastActive: Date.now(), username: '', passwordHash: null };
+        }
+
+        // 保存用户数据
+        async function saveUserData() {
+            const userData = {
+                contacts,
+                pendingRequests,
+                lastActive: Date.now(),
+                username: myUsername,
+                passwordHash: userPasswordHash
+            };
+            await uploadDataToRains3(`users/${myIp}/user_data.json`, userData);
+        }
+
+        // 检查账户是否超过90天未登录
+        async function checkAccountInactive() {
+            const userData = await loadUserData();
+            const lastActive = userData.lastActive || 0;
+            const daysInactive = (Date.now() - lastActive) / (1000 * 60 * 60 * 24);
+            if (daysInactive > CONFIG.accountInactiveDays) {
+                await deleteFromRains3(`users/${myIp}/user_data.json`).catch(() => {});
+                contacts = [];
+                pendingRequests = [];
+                myUsername = '';
+                userPasswordHash = null;
+                isPasswordProtected = false;
+                alert('账户因超过90天未登录已被重置，聊天记录仍保留');
+                await createNewAccount();
+            } else {
+                await saveUserData();
+            }
+        }
+
+        // ===== PBKDF2 慢哈希实现 =====
+        async function hashPBKDF2(password) {
+            // 生成随机盐 (16字节)
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const encoder = new TextEncoder();
+            const passwordData = encoder.encode(password);
+            
+            // 导入密钥
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                passwordData,
+                { name: 'PBKDF2' },
+                false,
+                ['deriveBits']
+            );
+            
+            // 派生密钥
+            const derivedBits = await crypto.subtle.deriveBits(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: CONFIG.pbkdf2Iterations,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                CONFIG.pbkdf2KeyLength * 8
+            );
+            
+            const hashArray = new Uint8Array(derivedBits);
+            
+            // 格式: pbkdf2$iterations$salt$hash
+            const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+            const hashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            return `pbkdf2$${CONFIG.pbkdf2Iterations}$${saltHex}$${hashHex}`;
+        }
+
+        async function verifyPBKDF2(password, storedHash) {
+            const parts = storedHash.split('$');
+            if (parts.length !== 4 || parts[0] !== 'pbkdf2') {
+                throw new Error('无效的哈希格式');
+            }
+            
+            const iterations = parseInt(parts[1]);
+            const saltHex = parts[2];
+            const storedHashHex = parts[3];
+            
+            const salt = new Uint8Array(saltHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+            const encoder = new TextEncoder();
+            const passwordData = encoder.encode(password);
+            
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                passwordData,
+                { name: 'PBKDF2' },
+                false,
+                ['deriveBits']
+            );
+            
+            const derivedBits = await crypto.subtle.deriveBits(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: iterations,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                storedHashHex.length * 4 // 十六进制长度转比特
+            );
+            
+            const hashArray = new Uint8Array(derivedBits);
+            const hashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            // 常量时间比较
+            if (hashHex.length !== storedHashHex.length) return false;
+            let result = 0;
+            for (let i = 0; i < hashHex.length; i++) {
+                result |= hashHex.charCodeAt(i) ^ storedHashHex.charCodeAt(i);
+            }
+            return result === 0;
+        }
+
+        // ===== 设置模块功能 =====
+        function openSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'flex';
+            // 同步密码保护状态
+            document.getElementById('password-toggle').checked = isPasswordProtected;
+            togglePasswordProtection();
+            if (isPasswordProtected) {
+                document.getElementById('password-status').textContent = '密码保护已启用';
+            }
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function togglePasswordProtection() {
+            const isEnabled = document.getElementById('password-toggle').checked;
+            const panel = document.getElementById('password-setup-panel');
+            if (isEnabled && !isPasswordProtected) {
+                panel.style.display = 'block';
+            } else if (isEnabled && isPasswordProtected) {
+                panel.style.display = 'none';
+                document.getElementById('password-status').textContent = '密码保护已启用';
+            } else {
+                panel.style.display = 'none';
+                document.getElementById('password-status').textContent = '';
+            }
+        }
+
+        function checkPasswordStrength() {
+            const password = document.getElementById('new-password').value;
+            const strengthEl = document.getElementById('password-strength');
+            
+            // 密码要求：8-22位，包含大小写字母、数字、特殊字符
+            const hasLower = /[a-z]/.test(password);
+            const hasUpper = /[A-Z]/.test(password);
+            const hasNumber = /\d/.test(password);
+            const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+            const lengthValid = password.length >= 8 && password.length <= 22;
+            
+            let strength = 0;
+            if (hasLower) strength++;
+            if (hasUpper) strength++;
+            if (hasNumber) strength++;
+            if (hasSpecial) strength++;
+            
+            if (password.length === 0) {
+                strengthEl.textContent = '';
+                strengthEl.className = 'password-strength';
+            } else if (!lengthValid) {
+                strengthEl.textContent = '密码长度必须在8-22位之间';
+                strengthEl.className = 'password-strength strength-weak';
+            } else if (strength < 4) {
+                strengthEl.textContent = '密码必须包含大写字母、小写字母、数字和特殊字符';
+                strengthEl.className = 'password-strength strength-weak';
+            } else {
+                strengthEl.textContent = '密码强度: 强';
+                strengthEl.className = 'password-strength strength-strong';
+            }
+        }
+
+        async function savePassword() {
+            const password = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            // 验证密码
+            const hasLower = /[a-z]/.test(password);
+            const hasUpper = /[A-Z]/.test(password);
+            const hasNumber = /\d/.test(password);
+            const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+            
+            if (password.length < 8 || password.length > 22) {
+                alert('密码长度必须在8-22位之间');
+                return;
+            }
+            if (!hasLower || !hasUpper || !hasNumber || !hasSpecial) {
+                alert('密码必须包含大写字母、小写字母、数字和特殊字符');
+                return;
+            }
+            if (password !== confirmPassword) {
+                alert('两次输入的密码不一致');
+                return;
+            }
+            
+            try {
+                const hash = await hashPBKDF2(password);
+                userPasswordHash = hash;
+                isPasswordProtected = true;
+                await saveUserData();
+                document.getElementById('password-status').textContent = '密码保护已启用';
+                document.getElementById('password-setup-panel').style.display = 'none';
+                alert('密码设置成功！下次打开应用时需要验证');
+            } catch (error) {
+                alert('设置密码失败: ' + error.message);
+            }
+        }
+
+        // ===== 修复后的 ListObjects API 实现 =====
+        async function listObjectsFromRains3(prefix) {
+            const maxKeys = 1000;
+            const isoDate = getISO8601Date();
+            
+            // 构建 query 参数（必须按字母顺序排序）
+            const queryParams = {
+                'list-type': '2',
+                'max-keys': maxKeys.toString(),
+                'prefix': prefix
+            };
+            
+            // 按字母顺序排序并构建查询字符串
+            const sortedKeys = Object.keys(queryParams).sort();
+            const queryStringParts = sortedKeys.map(key => {
+                // 对 key 和 value 进行 URI 编码，并替换 + 为 %20，替换 * 为 %2A 等
+                const encodedKey = encodeURIComponent(key);
+                const encodedValue = encodeURIComponent(queryParams[key]).replace(/%20/g, '+');
+                return `${encodedKey}=${encodedValue}`;
+            });
+            const canonicalQueryString = queryStringParts.join('&');
+            
+            // 对于 ListObjects，Canonical URI 是 /（根路径）
+            const canonicalUri = '/';
+            
+            // 计算空内容的 SHA256（GET 请求没有 body）
+            const payloadHash = uint8ArrayToHex(await sha256(''));
+            
+            // 构建 Canonical Headers（必须按字母顺序）
+            const host = `${CONFIG.bucket}.${CONFIG.endpoint}`;
+            const canonicalHeaders = `host:${host}\n` +
+                                    `x-amz-content-sha256:${payloadHash}\n` +
+                                    `x-amz-date:${isoDate.full}\n`;
+            
+            const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+            
+            // 构建 Canonical Request
+            const canonicalRequest = [
+                'GET',
+                canonicalUri,
+                canonicalQueryString,
+                canonicalHeaders,
+                signedHeaders,
+                payloadHash
+            ].join('\n');
+            
+            // 调试输出（开发时使用）
+            console.log('Canonical Request:\n', canonicalRequest);
+            
+            // 计算签名
+            const credentialScope = `${isoDate.short}/${CONFIG.region}/s3/aws4_request`;
+            const canonicalRequestHash = uint8ArrayToHex(await sha256(canonicalRequest));
+            
+            const stringToSign = [
+                'AWS4-HMAC-SHA256',
+                isoDate.full,
+                credentialScope,
+                canonicalRequestHash
+            ].join('\n');
+            
+            // 派生签名密钥
+            const dateKey = await hmacSha256(`AWS4${CONFIG.secretKey}`, isoDate.short);
+            const dateRegionKey = await hmacSha256(dateKey, CONFIG.region);
+            const dateRegionServiceKey = await hmacSha256(dateRegionKey, 's3');
+            const signingKey = await hmacSha256(dateRegionServiceKey, 'aws4_request');
+            const signature = uint8ArrayToHex(await hmacSha256(signingKey, stringToSign));
+            
+            // 构建 Authorization Header
+            const authHeader = `AWS4-HMAC-SHA256 Credential=${CONFIG.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+            
+            // 构建完整 URL
+            const listUrl = `https://${host}/?${canonicalQueryString}`;
+            
+            console.log('Request URL:', listUrl);
+            console.log('Authorization:', authHeader);
+            
+            const response = await fetch(listUrl, {
+                method: 'GET',
+                headers: {
+                    'Host': host,
+                    'x-amz-date': isoDate.full,
+                    'x-amz-content-sha256': payloadHash,
+                    'Authorization': authHeader
+                }
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('ListObjects Error Response:', errorText);
+                throw new Error(`ListObjects失败: ${response.status} - ${errorText}`);
+            }
+            
+            const xmlText = await response.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+            
+            // 检查是否有错误
+            const errorNode = xmlDoc.querySelector('Error');
+            if (errorNode) {
+                const errorCode = errorNode.querySelector('Code')?.textContent;
+                const errorMessage = errorNode.querySelector('Message')?.textContent;
+                throw new Error(`S3 Error: ${errorCode} - ${errorMessage}`);
+            }
+            
+            const contents = xmlDoc.querySelectorAll('Contents');
+            const files = [];
+            
+            contents.forEach(item => {
+                const key = item.querySelector('Key')?.textContent;
+                const size = parseInt(item.querySelector('Size')?.textContent || '0');
+                const lastModified = item.querySelector('LastModified')?.textContent;
+                
+                if (key && !key.endsWith('/')) {
+                    files.push({
+                        key: key,
+                        size: size,
+                        lastModified: lastModified,
+                        url: `https://${CONFIG.bucket}.${CONFIG.endpoint}/${encodeURIComponent(key).replace(/%2F/g, '/')}`
+                    });
+                }
+            });
+            
+            return files;
+        }
+
+        // 加载云端文件列表
+        async function loadCloudFiles() {
+            const fileListEl = document.getElementById('cloud-files-list');
+            fileListEl.innerHTML = '<div style="text-align: center; padding: 20px;">加载中...</div>';
+            
+            try {
+                // 使用 ListObjectsV2 API 列出用户上传目录下的文件
+                const prefix = `uploads/${myIp}/`;
+                const files = await listObjectsFromRains3(prefix);
+                
+                if (files.length === 0) {
+                    fileListEl.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">暂无上传的文件</div>';
+                    return;
+                }
+                
+                fileListEl.innerHTML = '';
+                files.forEach(file => {
+                    const fileName = decodeURIComponent(file.key.split('/').pop().replace(/\+/g, ' '));
+                    const fileSize = formatFileSize(file.size);
+                    const uploadTime = new Date(file.lastModified).toLocaleString();
+                    
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div class="file-info">
+                            <div class="file-name">${escapeHtml(fileName)}</div>
+                            <div class="file-meta">${fileSize} · ${uploadTime}</div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="btn-small btn-primary" onclick="window.open('${file.url}', '_blank')">查看</button>
+                        </div>
+                    `;
+                    fileListEl.appendChild(fileItem);
+                });
+            } catch (error) {
+                console.error('加载云端文件失败:', error);
+                fileListEl.innerHTML = `<div style="text-align: center; color: #f44336; padding: 20px;">加载失败: ${error.message}<br><small style="color: #888;">请检查控制台查看详细错误信息</small></div>`;
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 注销账户
+        function startAccountDeletion() {
+            document.getElementById('verify-ip-display').textContent = myIp;
+            document.getElementById('delete-account-modal').style.display = 'flex';
+        }
+
+        function closeDeleteAccountModal() {
+            document.getElementById('delete-account-modal').style.display = 'none';
+            document.getElementById('verify-ip-input').value = '';
+        }
+
+        async function confirmDeleteAccount() {
+            const inputIp = document.getElementById('verify-ip-input').value.trim();
+            
+            if (inputIp !== myIp) {
+                alert('IP地址验证失败，请输入正确的IP地址');
+                return;
+            }
+            
+            if (!confirm('最后确认：你真的要永久删除账户吗？所有数据将无法恢复！')) {
+                return;
+            }
+            
+            try {
+                document.getElementById('loading').textContent = '正在注销账户...';
+                document.getElementById('loading').style.display = 'flex';
+                document.getElementById('delete-account-modal').style.display = 'none';
+                
+                // 1. 删除用户数据
+                await deleteFromRains3(`users/${myIp}/user_data.json`);
+                
+                // 2. 删除所有聊天记录
+                const chatPrefixes = [`chats/${myIp}/`, `chats/${CONFIG.fileTransferKey}/`];
+                for (const prefix of chatPrefixes) {
+                    try {
+                        const files = await listObjectsFromRains3(prefix);
+                        for (const file of files) {
+                            await deleteFromRains3(file.key);
+                        }
+                    } catch (e) {
+                        console.log(`清理 ${prefix} 失败:`, e);
+                    }
+                }
+                
+                // 3. 删除上传的文件
+                try {
+                    const uploadFiles = await listObjectsFromRains3(`uploads/${myIp}/`);
+                    for (const file of uploadFiles) {
+                        await deleteFromRains3(file.key);
+                    }
+                } catch (e) {
+                    console.log('清理上传文件失败:', e);
+                }
+                
+                alert('账户已成功注销，所有数据已删除');
+                location.reload();
+            } catch (error) {
+                alert('注销失败: ' + error.message);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // 其余原有函数保持不变...
+        async function loadMyUsername() {
+            try {
+                const userData = await loadUserData();
+                myUsername = userData.username || '';
+                userPasswordHash = userData.passwordHash || null;
+                isPasswordProtected = !!userPasswordHash;
+            } catch (error) {
+                console.error('加载用户名失败:', error);
+                myUsername = '';
+            }
+        }
+
+        function updateUsernameDisplay() {
+            const usernameEl = document.getElementById('my-username');
+            usernameEl.textContent = myUsername || '未设置用户名';
+        }
+
+        function openEditProfileModal() {
+            const usernameInput = document.getElementById('new-username');
+            usernameInput.value = myUsername || '';
+            updateUsernameLengthTip();
+            document.getElementById('edit-profile-modal').style.display = 'flex';
+        }
+
+        function closeEditProfileModal() {
+            document.getElementById('edit-profile-modal').style.display = 'none';
+        }
+
+        function getByteLength(str) {
+            return str.split('').reduce((len, char) => {
+                return len + (char.charCodeAt(0) > 255 ? 2 : 1);
+            }, 0);
+        }
+
+        function updateUsernameLengthTip() {
+            const input = document.getElementById('new-username');
+            const tip = document.getElementById('username-length-tip');
+            const length = getByteLength(input.value);
+            tip.textContent = `${length}/${CONFIG.maxUsernameLength} 字符`;
+            tip.style.color = length > CONFIG.maxUsernameLength ? '#f44336' : '#888';
+        }
+
+        function updateRemarkLengthTip() {
+            const input = document.getElementById('contact-remark-input');
+            const tip = document.getElementById('remark-length-tip');
+            const length = getByteLength(input.value);
+            tip.textContent = `${length}/${CONFIG.maxRemarkLength} 字符`;
+            tip.style.color = length > CONFIG.maxRemarkLength ? '#f44336' : '#888';
+        }
+
+        async function saveUsername() {
+            const newUsername = document.getElementById('new-username').value.trim();
+            if (getByteLength(newUsername) > CONFIG.maxUsernameLength) {
+                alert(`用户名不能超过${CONFIG.maxUsernameLength}个字节`);
+                return;
+            }
+            try {
+                myUsername = newUsername;
+                await saveUserData();
+                updateUsernameDisplay();
+                closeEditProfileModal();
+                alert('用户名保存成功！');
+            } catch (error) {
+                alert(`保存用户名失败: ${error.message}`);
+            }
+        }
+
+        function openEditRemarkModal(ip) {
+            const contactIpDisplay = document.getElementById('contact-ip-display');
+            const remarkInput = document.getElementById('contact-remark-input');
+            contactIpDisplay.value = ip;
+            const contact = contacts.find(item => item.ip === ip);
+            remarkInput.value = contact ? contact.remark || '' : '';
+            updateRemarkLengthTip();
+            document.getElementById('edit-remark-modal').setAttribute('data-ip', ip);
+            document.getElementById('edit-remark-modal').style.display = 'flex';
+        }
+
+        function closeEditRemarkModal() {
+            document.getElementById('edit-remark-modal').style.display = 'none';
+            document.getElementById('edit-remark-modal').removeAttribute('data-ip');
+        }
+
+        async function saveContactRemark() {
+            const ip = document.getElementById('edit-remark-modal').getAttribute('data-ip');
+            const newRemark = document.getElementById('contact-remark-input').value.trim();
+            if (getByteLength(newRemark) > CONFIG.maxRemarkLength) {
+                alert(`备注不能超过${CONFIG.maxRemarkLength}个字节`);
+                return;
+            }
+            if (!ip) {
+                alert('联系人IP不存在');
+                return;
+            }
+            try {
+                const contactIndex = contacts.findIndex(item => item.ip === ip);
+                if (contactIndex !== -1) {
+                    contacts[contactIndex].remark = newRemark;
+                }
+                await saveUserData();
+                renderContactList();
+                closeEditRemarkModal();
+                alert('备注保存成功！');
+            } catch (error) {
+                alert(`保存备注失败: ${error.message}`);
+            }
+        }
+
+        function renderContactList() {
+            const list = document.getElementById('contact-list');
+            list.innerHTML = '';
+            
+            list.innerHTML += `
+                <div class="contact-item file-transfer ${currentChat === CONFIG.fileTransferKey ? 'active' : ''}" 
+                     data-ip="${CONFIG.fileTransferKey}" 
+                     onclick="switchChat('${CONFIG.fileTransferKey}')">
+                    <div class="contact-name">📤 文件传输助手</div>
+                    <div class="contact-lastmsg">给自己发送消息/文件</div>
+                </div>
+                <div style="height: 1px; background: #eee; margin: 0 20px;"></div>
+            `;
+            
+            if (contacts.length === 0) {
+                list.innerHTML += `
+                    <div class="contact-item" style="color: #888; text-align: center; padding: 20px;">
+                        暂无联系人，点击下方按钮添加
+                    </div>
+                `;
+            } else {
+                contacts.forEach(item => {
+                    const ip = item.ip;
+                    const remark = item.remark || '';
+                    const displayName = remark || ip;
+                    
+                    list.innerHTML += `
+                        <div class="contact-item ${currentChat === ip ? 'active' : ''}" data-ip="${ip}" onclick="switchChat('${ip}')">
+                            <div class="contact-name">${displayName} 
+                                <span class="remark-edit-btn" onclick="event.stopPropagation(); openEditRemarkModal('${ip}')">✏️ 备注</span>
+                            </div>
+                            ${remark ? `<div class="contact-remark">IP: ${ip}</div>` : ''}
+                            <div class="contact-lastmsg">点击开始聊天</div>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (pendingRequests.length > 0) {
+                list.innerHTML += `<div style="padding: 10px 20px; font-size: 14px; color: #ff9800; border-bottom: 1px solid #f0f0f0;">待处理申请</div>`;
+                pendingRequests.forEach(req => {
+                    list.innerHTML += `
+                        <div class="contact-item" style="background: #fff3e0;" onclick="handleRequest('${req.from}')">
+                            <div class="contact-name">来自 ${req.from} 的申请</div>
+                            <div class="contact-lastmsg">点击处理</div>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        function switchChat(ip) {
+            currentChat = ip;
+            if (messageSyncTimer) {
+                clearInterval(messageSyncTimer);
+            }
+            
+            if (ip === CONFIG.fileTransferKey) {
+                document.getElementById('chat-title').textContent = '文件传输助手';
+                document.getElementById('refresh-chat-btn').style.display = 'none';
+            } else {
+                const contact = contacts.find(item => item.ip === ip);
+                const displayTitle = contact && contact.remark ? `${contact.remark} (${ip})` : ip;
+                document.getElementById('chat-title').textContent = displayTitle;
+                document.getElementById('refresh-chat-btn').style.display = 'inline-block';
+                messageSyncTimer = setInterval(loadMessages, CONFIG.messageSyncInterval);
+            }
+            
+            document.getElementById('chat-empty').style.display = 'none';
+            document.getElementById('chat-messages').style.display = 'block';
+            document.getElementById('chat-input-area').style.display = 'flex';
+            document.getElementById('clear-chat-btn').style.display = 'block';
+            
+            loadMessages();
+            renderContactList();
+        }
+
+        function openAddContactModal() {
+            document.getElementById('add-contact-modal').style.display = 'flex';
+        }
+
+        function closeAddContactModal() {
+            document.getElementById('add-contact-modal').style.display = 'none';
+            document.getElementById('contact-ip').value = '';
+        }
+
+        async function sendContactRequest() {
+            const targetIp = document.getElementById('contact-ip').value.trim();
+            if (!targetIp || targetIp === myIp || isPrivateIp(targetIp)) {
+                alert('请输入有效的对方外网IP');
+                return;
+            }
+            const isAdded = contacts.some(item => item.ip === targetIp);
+            if (isAdded) {
+                alert('该IP已在你的联系人列表中');
+                return;
+            }
+            try {
+                let targetUserData = { contacts: [], pendingRequests: [], lastActive: Date.now(), username: '' };
+                const targetDataUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/users/${targetIp}/user_data.json`;
+                try {
+                    const response = await fetch(targetDataUrl);
+                    if (response.ok) {
+                        targetUserData = await response.json();
+                    }
+                } catch (e) {
+                    await uploadDataToRains3(`users/${targetIp}/user_data.json`, targetUserData);
+                }
+                targetUserData.pendingRequests = targetUserData.pendingRequests || [];
+                targetUserData.pendingRequests.push({ from: myIp, time: Date.now() });
+                await uploadDataToRains3(`users/${targetIp}/user_data.json`, targetUserData);
+                alert('申请已发送，请等待对方通过');
+                closeAddContactModal();
+            } catch (error) {
+                alert(`发送申请失败: ${error.message}`);
+            }
+        }
+
+        async function handleRequest(fromIp) {
+            const action = confirm(`是否同意 ${fromIp} 添加你为联系人？`);
+            try {
+                if (action) {
+                    const isExist = contacts.some(item => item.ip === fromIp);
+                    if (!isExist) {
+                        contacts.push({ ip: fromIp, remark: '' });
+                    }
+                    
+                    const targetDataUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/users/${fromIp}/user_data.json`;
+                    let targetUserData = { contacts: [], pendingRequests: [], lastActive: Date.now(), username: '' };
+                    try {
+                        const response = await fetch(targetDataUrl);
+                        if (response.ok) {
+                            targetUserData = await response.json();
+                        }
+                    } catch (e) {}
+                    
+                    targetUserData.contacts = targetUserData.contacts || [];
+                    if (Array.isArray(targetUserData.contacts)) {
+                        if (typeof targetUserData.contacts[0] === 'string') {
+                            targetUserData.contacts = targetUserData.contacts.map(ip => ({ ip, remark: '' }));
+                        }
+                        const isMyIpExist = targetUserData.contacts.some(item => item.ip === myIp);
+                        if (!isMyIpExist) {
+                            targetUserData.contacts.push({ ip: myIp, remark: '' });
+                        }
+                    }
+                    
+                    await uploadDataToRains3(`users/${fromIp}/user_data.json`, targetUserData);
+                }
+                pendingRequests = pendingRequests.filter(req => req.from !== fromIp);
+                await saveUserData();
+                renderContactList();
+            } catch (error) {
+                alert(`处理申请失败: ${error.message}`);
+            }
+        }
+
+        async function loadMessages() {
+            if (!currentChat) return;
+            
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.innerHTML = '';
+            
+            try {
+                let allMessages = [];
+                
+                if (currentChat === CONFIG.fileTransferKey) {
+                    const chatKey = `chats/${currentChat}/messages.json`;
+                    const chatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${chatKey}`;
+                    try {
+                        const response = await fetch(chatUrl);
+                        if (response.ok) {
+                            allMessages = await response.json();
+                        }
+                    } catch (e) {
+                        await uploadDataToRains3(chatKey, []);
+                    }
+                } else {
+                    let myMessages = [];
+                    const myChatKey = `chats/${currentChat}/messages.json`;
+                    const myChatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${myChatKey}`;
+                    try {
+                        const response = await fetch(myChatUrl);
+                        if (response.ok) {
+                            myMessages = await response.json();
+                        }
+                    } catch (e) {
+                        await uploadDataToRains3(myChatKey, []);
+                    }
+                    
+                    let theirMessages = [];
+                    const theirChatKey = `chats/${myIp}/messages.json`;
+                    const theirChatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${theirChatKey}`;
+                    try {
+                        const response = await fetch(theirChatUrl);
+                        if (response.ok) {
+                            const allTheirMessages = await response.json();
+                            theirMessages = allTheirMessages.filter(msg => 
+                                msg.to === myIp && msg.from === currentChat
+                            );
+                        }
+                    } catch (e) {
+                        console.log('对方暂无发送给你的消息');
+                    }
+                    
+                    const mergedMessages = [...myMessages, ...theirMessages];
+                    const uniqueMessages = [];
+                    const messageIds = new Set();
+                    
+                    mergedMessages.forEach(msg => {
+                        const msgId = `${msg.time}-${msg.from}-${msg.text.substring(0, 20)}`;
+                        if (!messageIds.has(msgId)) {
+                            messageIds.add(msgId);
+                            uniqueMessages.push(msg);
+                        }
+                    });
+                    
+                    allMessages = uniqueMessages.sort((a, b) => a.time - b.time);
+                }
+                
+                allMessages.forEach((msg, index) => renderMessage(msg, index));
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+            } catch (error) {
+                alert(`加载消息失败: ${error.message}`);
+            }
+        }
+
+        function renderMessage(msg, index) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const isSent = (currentChat === CONFIG.fileTransferKey) || (msg.from === myIp);
+            const messageEl = document.createElement('div');
+            
+            messageEl.className = `message ${isSent ? 'sent' : 'received'}`;
+            messageEl.dataset.index = index;
+            let content = msg.text || '';
+            
+            if (msg.fileUrl) {
+                const fileName = msg.fileName || '文件';
+                const fileSize = (msg.fileSize / 1024 / 1024).toFixed(2) + 'MB';
+                content += `<a href="${msg.fileUrl}" class="message-file" target="_blank" download>${fileName} (${fileSize})</a>`;
+            }
+            
+            const time = new Date(msg.time).toLocaleString();
+            messageEl.innerHTML = `
+                <div class="message-delete" onclick="deleteSingleMessage(${index})">×</div>
+                ${content}
+                <div class="message-time">${time}</div>
+            `;
+            
+            messagesContainer.appendChild(messageEl);
+        }
+
+        async function deleteSingleMessage(index) {
+            if (!currentChat || !confirm('确定要删除这条消息吗？（仅删除你这边的记录）')) {
+                return;
+            }
+            
+            try {
+                if (currentChat === CONFIG.fileTransferKey) {
+                    const chatKey = `chats/${currentChat}/messages.json`;
+                    const chatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${chatKey}`;
+                    const response = await fetch(chatUrl);
+                    
+                    let allMessages = [];
+                    if (response.ok) {
+                        allMessages = await response.json();
+                    }
+                    
+                    allMessages.splice(index, 1);
+                    await uploadDataToRains3(chatKey, allMessages);
+                } else {
+                    const chatKey = `chats/${currentChat}/messages.json`;
+                    const chatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${chatKey}`;
+                    const response = await fetch(chatUrl);
+                    
+                    let myMessages = [];
+                    if (response.ok) {
+                        myMessages = await response.json();
+                    }
+                    
+                    const allMessages = await loadAllMergedMessages();
+                    const msgToDelete = allMessages[index];
+                    
+                    if (msgToDelete.from === myIp) {
+                        const msgIndex = myMessages.findIndex(m => 
+                            m.time === msgToDelete.time && m.text === msgToDelete.text
+                        );
+                        if (msgIndex !== -1) {
+                            myMessages.splice(msgIndex, 1);
+                            await uploadDataToRains3(chatKey, myMessages);
+                        }
+                    } else {
+                        alert('无法删除对方发送的消息（仅对方可删除）');
+                        return;
+                    }
+                }
+                
+                loadMessages();
+            } catch (error) {
+                alert(`删除消息失败: ${error.message}`);
+            }
+        }
+
+        async function loadAllMergedMessages() {
+            if (currentChat === CONFIG.fileTransferKey) {
+                const chatKey = `chats/${currentChat}/messages.json`;
+                const chatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${chatKey}`;
+                const response = await fetch(chatUrl);
+                return response.ok ? await response.json() : [];
+            } else {
+                const myChatKey = `chats/${currentChat}/messages.json`;
+                const myChatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${myChatKey}`;
+                const myResponse = await fetch(myChatUrl);
+                const myMessages = myResponse.ok ? await myResponse.json() : [];
+                
+                const theirChatKey = `chats/${myIp}/messages.json`;
+                const theirChatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${theirChatKey}`;
+                let theirMessages = [];
+                try {
+                    const theirResponse = await fetch(theirChatUrl);
+                    if (theirResponse.ok) {
+                        const allTheirMessages = await theirResponse.json();
+                        theirMessages = allTheirMessages.filter(msg => 
+                            msg.to === myIp && msg.from === currentChat
+                        );
+                    }
+                } catch (e) {}
+                
+                const merged = [...myMessages, ...theirMessages];
+                const unique = [];
+                const ids = new Set();
+                merged.forEach(msg => {
+                    const id = `${msg.time}-${msg.from}-${msg.text.substring(0, 20)}`;
+                    if (!ids.has(id)) {
+                        ids.add(id);
+                        unique.push(msg);
+                    }
+                });
+                return unique.sort((a, b) => a.time - b.time);
+            }
+        }
+
+        async function clearChatHistory() {
+            if (!currentChat || !confirm('确定要清空所有聊天记录吗？（仅删除你这边的记录）')) {
+                return;
+            }
+            
+            try {
+                if (currentChat === CONFIG.fileTransferKey) {
+                    const chatKey = `chats/${currentChat}/messages.json`;
+                    await uploadDataToRains3(chatKey, []);
+                } else {
+                    const chatKey = `chats/${currentChat}/messages.json`;
+                    await uploadDataToRains3(chatKey, []);
+                }
+                
+                loadMessages();
+                alert('聊天记录已清空（仅你这边）');
+            } catch (error) {
+                alert(`清空记录失败: ${error.message}`);
+            }
+        }
+
+        // S3 V4签名生成函数
+        function getISO8601Date(date = new Date()) {
+            const dt = date.toISOString().replace(/[:\-]|\.\d{3}/g, '');
+            return {
+                full: dt,
+                short: dt.substring(0, 8)
+            };
+        }
+
+        async function hmacSha256(key, data) {
+            const encoder = new TextEncoder();
+            const keyData = typeof key === 'string' ? encoder.encode(key) : key;
+            const dataData = encoder.encode(data);
+            
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+            );
+            return new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, dataData));
+        }
+
+        async function sha256(data) {
+            const encoder = new TextEncoder();
+            const dataData = encoder.encode(data);
+            return new Uint8Array(await crypto.subtle.digest('SHA-256', dataData));
+        }
+
+        function uint8ArrayToHex(arr) {
+            return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function generateS3V4Signature(method, key, payloadHash, isoDate) {
+            const service = 's3';
+            const region = CONFIG.region;
+            
+            const dateKey = await hmacSha256(`AWS4${CONFIG.secretKey}`, isoDate.short);
+            const dateRegionKey = await hmacSha256(dateKey, region);
+            const dateRegionServiceKey = await hmacSha256(dateRegionKey, service);
+            const signingKey = await hmacSha256(dateRegionServiceKey, 'aws4_request');
+            
+            const canonicalUri = `/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
+            const canonicalQueryString = '';
+            const canonicalHeaders = `host:${CONFIG.bucket}.${CONFIG.endpoint}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${isoDate.full}\n`;
+            const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+            
+            const canonicalRequest = [
+                method,
+                canonicalUri,
+                canonicalQueryString,
+                canonicalHeaders,
+                signedHeaders,
+                payloadHash
+            ].join('\n');
+            
+            const credentialScope = `${isoDate.short}/${region}/${service}/aws4_request`;
+            const canonicalRequestHash = uint8ArrayToHex(await sha256(canonicalRequest));
+            
+            const stringToSign = [
+                'AWS4-HMAC-SHA256',
+                isoDate.full,
+                credentialScope,
+                canonicalRequestHash
+            ].join('\n');
+            
+            const signature = uint8ArrayToHex(await hmacSha256(signingKey, stringToSign));
+            
+            return `AWS4-HMAC-SHA256 Credential=${CONFIG.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+        }
+
+        async function uploadFileToRains3(file, customKey = null) {
+            return new Promise(async (resolve, reject) => {
+                const progressEl = document.getElementById('upload-progress');
+                const progressFill = document.getElementById('progress-fill');
+                progressEl.style.display = 'block';
+                progressFill.style.width = '0%';
+                
+                try {
+                    const safeFileName = customKey || `${Date.now()}_${encodeURIComponent(file.name).replace(/%2F/g, '+')}`;
+                    const objectKey = `uploads/${myIp}/${safeFileName}`;
+                    
+                    const isoDate = getISO8601Date();
+                    const payloadHash = 'UNSIGNED-PAYLOAD';
+                    
+                    const authHeader = await generateS3V4Signature('PUT', objectKey, payloadHash, isoDate);
+                    const uploadUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${encodeURIComponent(objectKey).replace(/%2F/g, '/')}`;
+                    
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('PUT', uploadUrl, true);
+                    
+                    xhr.setRequestHeader('x-amz-date', isoDate.full);
+                    xhr.setRequestHeader('x-amz-content-sha256', payloadHash);
+                    xhr.setRequestHeader('Authorization', authHeader);
+                    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                    
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const percent = (e.loaded / e.total) * 100;
+                            progressFill.style.width = `${percent}%`;
+                        }
+                    });
+                    
+                    xhr.addEventListener('load', () => {
+                        progressEl.style.display = 'none';
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve({
+                                url: uploadUrl,
+                                name: file.name,
+                                size: file.size
+                            });
+                        } else {
+                            reject(new Error(`上传失败: ${xhr.status} ${xhr.statusText}`));
+                        }
+                    });
+                    
+                    xhr.addEventListener('error', () => {
+                        progressEl.style.display = 'none';
+                        reject(new Error('上传失败：网络错误'));
+                    });
+                    
+                    xhr.send(file);
+                    
+                } catch (error) {
+                    progressEl.style.display = 'none';
+                    reject(error);
+                }
+            });
+        }
+
+        async function uploadDataToRains3(objectKey, data) {
+            const jsonString = JSON.stringify(data);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            
+            const isoDate = getISO8601Date();
+            const payloadHash = 'UNSIGNED-PAYLOAD';
+            
+            const authHeader = await generateS3V4Signature('PUT', objectKey, payloadHash, isoDate);
+            const uploadUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${encodeURIComponent(objectKey).replace(/%2F/g, '/')}`;
+            
+            const response = await fetch(uploadUrl, {
+                method: 'PUT',
+                headers: {
+                    'x-amz-date': isoDate.full,
+                    'x-amz-content-sha256': payloadHash,
+                    'Authorization': authHeader,
+                    'Content-Type': 'application/json'
+                },
+                body: blob
+            });
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+            }
+            
+            return {
+                url: uploadUrl,
+                key: objectKey
+            };
+        }
+
+        async function deleteFromRains3(objectKey) {
+            const isoDate = getISO8601Date();
+            const payloadHash = 'UNSIGNED-PAYLOAD';
+            
+            const authHeader = await generateS3V4Signature('DELETE', objectKey, payloadHash, isoDate);
+            const deleteUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${encodeURIComponent(objectKey).replace(/%2F/g, '/')}`;
+            
+            const response = await fetch(deleteUrl, {
+                method: 'DELETE',
+                headers: {
+                    'x-amz-date': isoDate.full,
+                    'x-amz-content-sha256': payloadHash,
+                    'Authorization': authHeader
+                }
+            });
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`删除失败: ${response.status} ${response.statusText}`);
+            }
+            
+            return true;
+        }
+
+        async function sendMessage() {
+            if (!currentChat) {
+                alert('请先选择一个联系人或文件传输助手');
+                return;
+            }
+            
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            const fileInput = document.getElementById('file-input');
+            
+            if (!text && !fileInput.files.length) {
+                return;
+            }
+
+            const sendBtn = document.getElementById('send-btn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '发送中...';
+
+            try {
+                let fileUrl = '';
+                let fileName = '';
+                let fileSize = 0;
+
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    
+                    if (file.type.startsWith('image/') && file.size > CONFIG.maxImageSize) {
+                        alert('图片大小不能超过3MB');
+                        return;
+                    }
+                    
+                    if (file.size > CONFIG.maxFileSize) {
+                        alert('文件大小不能超过2GB');
+                        return;
+                    }
+                    
+                    const uploadResult = await uploadFileToRains3(file);
+                    fileUrl = uploadResult.url;
+                    fileName = uploadResult.name;
+                    fileSize = uploadResult.size;
+                }
+
+                const msg = {
+                    from: myIp,
+                    to: (currentChat === CONFIG.fileTransferKey) ? myIp : currentChat,
+                    text: text,
+                    fileUrl,
+                    fileName,
+                    fileSize,
+                    time: Date.now()
+                };
+
+                const chatKey = `chats/${currentChat}/messages.json`;
+                let allMessages = [];
+                
+                try {
+                    const chatUrl = `https://${CONFIG.bucket}.${CONFIG.endpoint}/${chatKey}`;
+                    const response = await fetch(chatUrl);
+                    if (response.ok) {
+                        allMessages = await response.json();
+                    }
+                } catch (e) {}
+
+                allMessages.push(msg);
+                await uploadDataToRains3(chatKey, allMessages);
+
+                loadMessages();
+                
+                input.value = '';
+                fileInput.value = '';
+                document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+                
+                await saveUserData();
+
+            } catch (error) {
+                alert(`发送失败: ${error.message}`);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('send-btn').addEventListener('click', sendMessage);
+            document.getElementById('message-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            window.addEventListener('beforeunload', () => {
+                if (messageSyncTimer) clearInterval(messageSyncTimer);
+            });
+        }
+
+        function setupLengthListeners() {
+            const usernameInput = document.getElementById('new-username');
+            if (usernameInput) {
+                usernameInput.addEventListener('input', updateUsernameLengthTip);
+            }
+            
+            const remarkInput = document.getElementById('contact-remark-input');
+            if (remarkInput) {
+                remarkInput.addEventListener('input', updateRemarkLengthTip);
+            }
+        }
+
+        // 启动应用
+        init();
+    </script>
+</body>
+</html>
